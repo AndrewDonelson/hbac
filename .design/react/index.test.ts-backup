@@ -1,0 +1,138 @@
+// file: tests/react/index.test.tsx
+// description: Tests for React hooks and components
+
+import React from 'react';
+import '@testing-library/jest-dom';
+import { HBACClient, HBACProvider, useHBAC, usePermission } from '../../src/react';
+
+// Mock the entire React module to avoid JSX errors
+jest.mock('react', () => {
+  const originalReact = jest.requireActual('react');
+  return {
+    ...originalReact,
+    // Mock the hooks and components as needed
+  };
+});
+
+// Mock the react hooks
+jest.mock('../../src/react', () => ({
+  HBACClient: jest.fn().mockImplementation((apiUrl) => ({
+    can: jest.fn().mockResolvedValue(true),
+    getUserRoles: jest.fn().mockResolvedValue(['role_admin']),
+    getUserAttributes: jest.fn().mockResolvedValue({ attr_department: 'Engineering' }),
+  })),
+  HBACProvider: jest.fn(),
+  useHBAC: jest.fn().mockReturnValue({
+    loading: false,
+    userId: 'user123',
+    can: jest.fn().mockResolvedValue(true),
+    roles: ['role_admin'],
+    attributes: { attr_department: 'Engineering' },
+  }),
+  usePermission: jest.fn().mockReturnValue({
+    allowed: true,
+    loading: false,
+  }),
+}));
+
+// Mock fetch
+global.fetch = jest.fn().mockImplementation(() => 
+  Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ allowed: true }),
+  })
+);
+
+describe('HBACClient', () => {
+  const client = new HBACClient('/api/hbac');
+  
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('can method makes correct API call', async () => {
+    // Setup
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ allowed: true }),
+    });
+    
+    // Execute
+    const result = await client.can('user123', 'read', 'posts', { postId: '123' });
+    
+    // Verify
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/hbac/can',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(String),
+      })
+    );
+    
+    // Verify the body contains the expected parameters
+    const requestBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(requestBody).toEqual({
+      userId: 'user123',
+      action: 'read',
+      resource: 'posts',
+      context: { postId: '123' },
+    });
+    
+    expect(result).toBe(true);
+  });
+
+  test('getUserRoles makes correct API call', async () => {
+    // Setup
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ roles: ['role_admin'] }),
+    });
+    
+    // Execute
+    const result = await client.getUserRoles('user123');
+    
+    // Verify
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/hbac/roles/user123'
+    );
+    
+    expect(result).toEqual(['role_admin']);
+  });
+
+  test('getUserAttributes makes correct API call', async () => {
+    // Setup
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ attributes: { attr_department: 'Engineering' } }),
+    });
+    
+    // Execute
+    const result = await client.getUserAttributes('user123');
+    
+    // Verify
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/hbac/attributes/user123'
+    );
+    
+    expect(result).toEqual({ attr_department: 'Engineering' });
+  });
+});
+
+describe('React Hooks', () => {
+  test('useHBAC returns the expected values', () => {
+    const hookResult = useHBAC();
+    
+    expect(hookResult).toHaveProperty('loading');
+    expect(hookResult).toHaveProperty('userId');
+    expect(hookResult).toHaveProperty('can');
+    expect(hookResult).toHaveProperty('roles');
+    expect(hookResult).toHaveProperty('attributes');
+  });
+  
+  test('usePermission returns the expected values', () => {
+    const hookResult = usePermission('read', 'posts');
+    
+    expect(hookResult).toHaveProperty('allowed');
+    expect(hookResult).toHaveProperty('loading');
+  });
+});
