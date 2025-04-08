@@ -1,0 +1,44 @@
+{
+  "name": "hbac",
+  "version": "0.1.0",
+  "description": "Hybrid-Based Access Control for Node.js applications",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write 'src/**/*.ts'",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "access-control",
+    "rbac",
+    "abac",
+    "authorization",
+    "permissions",
+    "convex"
+  ],
+  "author": "Andrew Donelson",
+  "license": "MIT",
+  "dependencies": {
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.14.0",
+    "@types/react": "^18.3.3",
+    "convex": "^1.23.0",
+    "express": "^5.1.0",
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.1",
+    "jest": "^29.7.0",
+    "prettier": "^3.5.3",
+    "ts-jest": "^29.3.1"
+  },
+  "peerDependencies": {
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0"
+  }
+}
