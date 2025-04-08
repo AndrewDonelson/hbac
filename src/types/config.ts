@@ -4,7 +4,7 @@
 /**
  * Type of database to use for storage
  */
-export type DatabaseType = 'convex' | 'custom';
+export type DatabaseType = 'lowdb' | 'convex' | 'mongodb' | 'postgres';
 
 /**
  * Audit log levels

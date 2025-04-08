@@ -1,0 +1,61 @@
+{
+    "version": "1.0",
+    "database": {
+      "type": "lowdb",
+      "connectionString": "./hbac_access_map.json"
+    },
+    "cache": {
+      "enabled": true,
+      "ttl": 300
+    },
+    "audit": {
+      "enabled": true,
+      "level": "info"
+    },
+    "policies": {
+      "defaultEffect": "deny",
+      "evaluation": "firstApplicable"
+    },
+    "roles": {
+      "admin": {
+        "id": "role_admin",
+        "description": "Administrator",
+        "permissions": ["*:*"]
+      },
+      "editor": {
+        "id": "role_editor",
+        "description": "Content Editor",
+        "permissions": ["posts:read", "posts:write", "comments:moderate"]
+      },
+      "user": {
+        "id": "role_user",
+        "description": "Regular User",
+        "permissions": ["posts:read", "comments:write"]
+      }
+    },
+    "attributes": {
+      "department": {
+        "id": "attr_department",
+        "type": "string",
+        "description": "User's department"
+      },
+      "clearanceLevel": {
+        "id": "attr_clearance",
+        "type": "number",
+        "description": "Security clearance level"
+      }
+    },
+    "policyRules": [
+      {
+        "id": "policy_sensitive_docs",
+        "name": "SensitiveDocAccess",
+        "description": "Access to sensitive documents",
+        "resource": "documents",
+        "action": "read",
+        "condition": {
+          "attributes.clearanceLevel": { "$gte": 3 }
+        },
+        "effect": "allow"
+      }
+    ]
+  }

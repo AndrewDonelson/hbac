@@ -23,6 +23,12 @@ export class HBACClient {
 
   /**
    * Checks if a user has permission to perform an action on a resource
+   * 
+   * @param userId Unique user identifier
+   * @param action Action to perform
+   * @param resource Resource to access
+   * @param context Additional context for permission check
+   * @returns Promise resolving to boolean indicating permission
    */
   public async can(
     userId: string,
@@ -51,13 +57,16 @@ export class HBACClient {
       const data = await response.json();
       return data.allowed;
     } catch (error) {
-      console.error('HBAC permission check failed:', error);
+      console.error('HBAC permission check failed:', error instanceof Error ? error.message : error);
       return false;
     }
   }
 
   /**
    * Retrieves roles for a specific user
+   * 
+   * @param userId Unique user identifier
+   * @returns Promise resolving to array of role identifiers
    */
   public async getUserRoles(userId: string): Promise<string[]> {
     try {
@@ -70,13 +79,16 @@ export class HBACClient {
       const data = await response.json();
       return data.roles || [];
     } catch (error) {
-      console.error('Failed to get user roles:', error);
+      console.error('Failed to get user roles:', error instanceof Error ? error.message : error);
       return [];
     }
   }
 
   /**
    * Retrieves attributes for a specific user
+   * 
+   * @param userId Unique user identifier
+   * @returns Promise resolving to map of attribute identifiers and values
    */
   public async getUserAttributes(userId: string): Promise<Record<string, any>> {
     try {
@@ -89,7 +101,7 @@ export class HBACClient {
       const data = await response.json();
       return data.attributes || {};
     } catch (error) {
-      console.error('Failed to get user attributes:', error);
+      console.error('Failed to get user attributes:', error instanceof Error ? error.message : error);
       return {};
     }
   }
@@ -135,6 +147,9 @@ interface HBACProviderProps {
 
 /**
  * Provider component for HBAC context
+ * 
+ * @param props Provider configuration
+ * @returns React component providing HBAC context
  */
 export function HBACProvider({ 
   children, 
@@ -163,7 +178,7 @@ export function HBACProvider({
         setRoles(userRoles);
         setAttributes(userAttributes);
       } catch (error) {
-        console.error('Failed to load user data:', error);
+        console.error('Failed to load user data:', error instanceof Error ? error.message : error);
       } finally {
         setLoading(false);
       }
@@ -183,4 +198,59 @@ export function HBACProvider({
       {children}
     </HBACContext.Provider>
   );
+}
+
+/**
+ * Hook for accessing HBAC context in React components
+ * 
+ * @returns HBAC context value
+ * @throws Error if used outside of HBACProvider
+ */
+export function useHBAC(): HBACContextType {
+  const context = useContext(HBACContext);
+  
+  if (!context) {
+    throw new Error('useHBAC must be used within an HBACProvider');
+  }
+  
+  return context;
+}
+
+/**
+ * Hook for checking permissions in React components
+ * 
+ * @param action Action to check
+ * @param resource Resource to check
+ * @param context Optional additional context
+ * @returns Object with permission state
+ */
+export function usePermission(
+  action: string,
+  resource: string,
+  context?: Record<string, any>
+) {
+  const { can, loading: hbacLoading } = useHBAC();
+  const [allowed, setAllowed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    async function checkPermission() {
+      if (hbacLoading) return;
+      
+      try {
+        const result = await can(action, resource, context);
+        setAllowed(result);
+      } catch (error) {
+        console.error('Permission check failed:', error instanceof Error ? error.message : error);
+        setAllowed(false);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    setLoading(true);
+    checkPermission();
+  }, [can, action, resource, context, hbacLoading]);
+  
+  return { allowed, loading: loading || hbacLoading };
 }
