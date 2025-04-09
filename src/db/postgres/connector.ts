@@ -1,7 +1,6 @@
 // file: src/db/postgres/connector.ts
 // description: PostgreSQL database connector for storing and retrieving user access information
 
-import { Pool, QueryResult } from 'pg';
 import { BaseDatabaseConnector } from '../base';
 import { RoleId } from '../../types/role';
 import { AttributeId, AttributeValue } from '../../types/attribute';
@@ -13,8 +12,9 @@ import { v4 as uuidv4 } from 'uuid';
  * PostgreSQL database connector for HBAC user access management
  */
 export class PostgresDatabaseConnector extends BaseDatabaseConnector {
-  private pool: Pool;
+  private pool: any;
   private tableName: string;
+  private pg: any;
 
   /**
    * Creates a new PostgreSQL database connector
@@ -29,7 +29,14 @@ export class PostgresDatabaseConnector extends BaseDatabaseConnector {
     }
 
     this.tableName = config.tableName || 'user_access_map';
-    this.pool = new Pool({ connectionString: config.connectionString });
+    
+    try {
+      // Dynamic import of pg
+      this.pg = require('pg');
+      this.pool = new this.pg.Pool({ connectionString: config.connectionString });
+    } catch (error) {
+      throw new Error(`Failed to load PostgreSQL library: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**

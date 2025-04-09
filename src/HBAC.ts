@@ -94,31 +94,59 @@ export class HBAC {
    * @returns Instantiated database connector
    */
   private async loadDatabaseConnector(
-    type: string, 
+    type: string,
     options?: HBACOptions
   ): Promise<DatabaseConnector> {
-    switch (type) {
-      case 'convex': {
-        const { ConvexDatabaseConnector } = await import('./db/convex/connector');
-        return new ConvexDatabaseConnector(
-          this.config!.database,
-          options?.convexClient
-        );
+    try {
+      switch (type) {
+        case 'convex': {
+          try {
+            const { ConvexDatabaseConnector } = await import('./db/convex/connector');
+            return new ConvexDatabaseConnector(
+              this.config!.database,
+              options?.convexClient
+            );
+          } catch (error) {
+            throw new Error(`Failed to load Convex connector: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        case 'lowdb': {
+          try {
+            const { LowdbDatabaseConnector } = await import('./db/lowdb/connector');
+            return new LowdbDatabaseConnector(this.config!.database);
+          } catch (error) {
+            throw new Error(`Failed to load LowDB connector: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        case 'mongodb': {
+          try {
+            const { MongoDBDatabaseConnector } = await import('./db/mongodb/connector');
+            return new MongoDBDatabaseConnector(this.config!.database);
+          } catch (error) {
+            throw new Error(`Failed to load MongoDB connector: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        case 'postgres': {
+          try {
+            const { PostgresDatabaseConnector } = await import('./db/postgres/connector');
+            return new PostgresDatabaseConnector(this.config!.database);
+          } catch (error) {
+            throw new Error(`Failed to load Postgres connector: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        case 'memory':
+        default: {
+          // For any unknown type or explicitly specified 'memory', use in-memory storage
+          console.warn(`Using in-memory database storage for type: ${type}`);
+          const { InMemoryDatabaseConnector } = await import('./db/memory/connector');
+          return new InMemoryDatabaseConnector();
+        }
       }
-      case 'lowdb': {
-        const { LowdbDatabaseConnector } = await import('./db/lowdb/connector');
-        return new LowdbDatabaseConnector(this.config!.database);
-      }
-      case 'mongodb': {
-        const { MongoDBDatabaseConnector } = await import('./db/mongodb/connector');
-        return new MongoDBDatabaseConnector(this.config!.database);
-      }
-      case 'postgres': {
-        const { PostgresDatabaseConnector } = await import('./db/postgres/connector');
-        return new PostgresDatabaseConnector(this.config!.database);
-      }
-      default:
-        throw new Error(`Unsupported database type: ${type}`);
+    } catch (error) {
+      // If connector can't be loaded, fall back to in-memory connector
+      console.warn(`Failed to load ${type} connector, falling back to in-memory storage: ${error instanceof Error ? error.message : String(error)}`);
+      const { InMemoryDatabaseConnector } = await import('./db/memory/connector');
+      return new InMemoryDatabaseConnector();
     }
   }
 
@@ -136,23 +164,23 @@ export class HBAC {
     try {
       // Load configuration
       this.config = await this.configManager.load();
-      
+
       // Initialize cache
       this.cacheManager = new CacheManager(this.config.cache);
-      
+
       // Initialize managers
       this.roleManager = new RoleManager(this.config.roles);
       this.attributeManager = new AttributeManager(this.config.attributes);
-      
+
       // Dynamically load database connector
       this.dbConnector = await this.loadDatabaseConnector(
-        this.config.database.type, 
+        this.config.database.type,
         options
       );
-      
+
       // Initialize database connector
       await this.dbConnector.initialize();
-      
+
       // Initialize policy engine
       this.policyEngine = new PolicyEngine(
         this.config.policyRules,
@@ -161,7 +189,7 @@ export class HBAC {
         this.roleManager,
         this.attributeManager
       );
-      
+
       this.initialized = true;
     } catch (error) {
       this.initialized = false;
@@ -188,23 +216,23 @@ export class HBAC {
     context: Record<string, any> = {}
   ): Promise<boolean> {
     this.checkInitialized();
-    
+
     // Create a cache key based on the permission context
     const cacheKey = `${userId}:${resource}:${action}:${JSON.stringify(context)}`;
-    
+
     // Check cache for existing permission decision
     const cachedDecision = this.cacheManager!.getPermissionDecision(cacheKey);
-    
+
     if (cachedDecision !== null) {
       return cachedDecision;
     }
-    
+
     // Retrieve user roles and attributes
     const [userRoles, userAttributes] = await Promise.all([
       this.getUserRoles(userId),
       this.getUserAttributes(userId)
     ]);
-    
+
     // Evaluate permission using policy engine
     const allowed = this.policyEngine!.evaluate(
       userRoles,
@@ -213,10 +241,10 @@ export class HBAC {
       action,
       context
     );
-    
+
     // Cache the permission decision
     this.cacheManager!.setPermissionDecision(cacheKey, allowed);
-    
+
     return allowed;
   }
 
@@ -236,7 +264,7 @@ export class HBAC {
     context: Record<string, any> = {}
   ): Promise<void> {
     const allowed = await this.can(userId, action, resource, context);
-    
+
     if (!allowed) {
       throw new Error('Access denied');
     }
@@ -251,20 +279,20 @@ export class HBAC {
    */
   public async getUserRoles(userId: string): Promise<RoleId[]> {
     this.checkInitialized();
-    
+
     // Check cache for user roles
     const cachedRoles = this.cacheManager!.getUserRoles(userId);
-    
+
     if (cachedRoles !== null) {
       return cachedRoles;
     }
-    
+
     // Retrieve roles from database
     const roles = await this.dbConnector!.getUserRoles(userId);
-    
+
     // Cache retrieved roles
     this.cacheManager!.setUserRoles(userId, roles);
-    
+
     return roles;
   }
 
@@ -277,20 +305,20 @@ export class HBAC {
    */
   public async getUserAttributes(userId: string): Promise<Record<AttributeId, AttributeValue>> {
     this.checkInitialized();
-    
+
     // Check cache for user attributes
     const cachedAttributes = this.cacheManager!.getUserAttributes(userId);
-    
+
     if (cachedAttributes !== null) {
       return cachedAttributes;
     }
-    
+
     // Retrieve attributes from database
     const attributes = await this.dbConnector!.getUserAttributes(userId);
-    
+
     // Cache retrieved attributes
     this.cacheManager!.setUserAttributes(userId, attributes);
-    
+
     return attributes;
   }
 
@@ -303,17 +331,17 @@ export class HBAC {
    */
   public async assignRole(userId: string, roleId: RoleId): Promise<void> {
     this.checkInitialized();
-    
+
     // Validate role
     const role = this.roleManager!.getRole(roleId);
-    
+
     if (!role) {
       throw new Error(`Invalid role ID: ${roleId}`);
     }
-    
+
     // Assign role in database
     await this.dbConnector!.assignRole(userId, roleId);
-    
+
     // Invalidate user cache
     this.cacheManager!.invalidateUser(userId);
   }
@@ -327,10 +355,10 @@ export class HBAC {
    */
   public async removeRole(userId: string, roleId: RoleId): Promise<void> {
     this.checkInitialized();
-    
+
     // Remove role from database
     await this.dbConnector!.removeRole(userId, roleId);
-    
+
     // Invalidate user cache
     this.cacheManager!.invalidateUser(userId);
   }
@@ -349,22 +377,22 @@ export class HBAC {
     value: AttributeValue
   ): Promise<void> {
     this.checkInitialized();
-    
+
     // Validate attribute
     const attribute = this.attributeManager!.getAttribute(attributeId);
-    
+
     if (!attribute) {
       throw new Error(`Invalid attribute ID: ${attributeId}`);
     }
-    
+
     // Validate attribute value
     if (!this.attributeManager!.validateAttributeValue(attributeId, value)) {
       throw new Error(`Invalid value for attribute ${attributeId}`);
     }
-    
+
     // Set attribute in database
     await this.dbConnector!.setAttribute(userId, attributeId, value);
-    
+
     // Invalidate user cache
     this.cacheManager!.invalidateUser(userId);
   }

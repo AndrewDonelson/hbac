@@ -1,21 +1,21 @@
 // file: src/db/mongodb/connector.ts
 // description: MongoDB database connector for storing and retrieving user access information
 
-import { MongoClient, Db, Collection } from 'mongodb';
 import { BaseDatabaseConnector } from '../base';
 import { RoleId } from '../../types/role';
 import { AttributeId, AttributeValue } from '../../types/attribute';
 import { UserAccessMap } from '../../types/database';
 import { DatabaseConfig } from '../../interfaces/config';
-import { v4 as uuidv4 } from 'uuid';
+
 
 /**
  * MongoDB database connector for HBAC user access management
  */
 export class MongoDBDatabaseConnector extends BaseDatabaseConnector {
-  private client: MongoClient;
-  private db: Db | null = null;
-  private collection: Collection | null = null;
+  private client: any;
+  private db: any = null;
+  private collection: any = null;
+  private mongodb: any;
 
   /**
    * Creates a new MongoDB database connector
@@ -29,7 +29,13 @@ export class MongoDBDatabaseConnector extends BaseDatabaseConnector {
       throw new Error('MongoDB connection string is required');
     }
 
-    this.client = new MongoClient(config.connectionString);
+    try {
+      // Dynamic import of mongodb
+      this.mongodb = require('mongodb');
+      this.client = new this.mongodb.MongoClient(config.connectionString);
+    } catch (error) {
+      throw new Error(`Failed to load MongoDB library: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**
@@ -56,7 +62,7 @@ export class MongoDBDatabaseConnector extends BaseDatabaseConnector {
   public async getUserRoles(userId: string): Promise<RoleId[]> {
     this.ensureInitialized();
     
-    const user = await this.collection!.findOne({ userId });
+    const user = await this.collection.findOne({ userId });
     return user?.roleIds || [];
   }
 
@@ -66,7 +72,7 @@ export class MongoDBDatabaseConnector extends BaseDatabaseConnector {
   public async getUserAttributes(userId: string): Promise<Record<AttributeId, AttributeValue>> {
     this.ensureInitialized();
     
-    const user = await this.collection!.findOne({ userId });
+    const user = await this.collection.findOne({ userId });
     return user?.attributes || {};
   }
 
@@ -76,7 +82,7 @@ export class MongoDBDatabaseConnector extends BaseDatabaseConnector {
   public async assignRole(userId: string, roleId: RoleId): Promise<void> {
     this.ensureInitialized();
     
-    await this.collection!.updateOne(
+    await this.collection.updateOne(
       { userId },
       { 
         $set: { userId },
@@ -92,7 +98,7 @@ export class MongoDBDatabaseConnector extends BaseDatabaseConnector {
   public async removeRole(userId: string, roleId: RoleId): Promise<void> {
     this.ensureInitialized();
     
-    await this.collection!.updateOne(
+    await this.collection.updateOne(
       { userId },
       { $pull: { roleIds: roleId } }
     );
@@ -108,7 +114,7 @@ export class MongoDBDatabaseConnector extends BaseDatabaseConnector {
   ): Promise<void> {
     this.ensureInitialized();
     
-    await this.collection!.updateOne(
+    await this.collection.updateOne(
       { userId },
       { 
         $set: { 
@@ -126,7 +132,7 @@ export class MongoDBDatabaseConnector extends BaseDatabaseConnector {
   public async getUserAccessMap(userId: string): Promise<UserAccessMap | null> {
     this.ensureInitialized();
     
-    return await this.collection!.findOne({ userId });
+    return await this.collection.findOne({ userId });
   }
 
   /**

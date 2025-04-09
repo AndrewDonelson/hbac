@@ -1,4 +1,4 @@
-// file: src/react/index.tsx
+// file: src/react/components.tsx
 // description: React hooks and components for integrating HBAC with React applications
 
 import React, { 

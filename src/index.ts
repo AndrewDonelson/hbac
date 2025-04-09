@@ -8,7 +8,7 @@ export { HBAC } from './HBAC';
 export { protect } from './middleware/express';
 
 // Export React hooks
-export { HBACClient, HBACProvider, useHBAC, usePermission } from './react';
+export { HBACClient, HBACProvider, useHBAC, usePermission } from './react/components';
 
 // Export types
 export * from './types';
