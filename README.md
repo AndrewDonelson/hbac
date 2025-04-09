@@ -155,7 +155,9 @@ function AdminPanel() {
 - Convex
 - MongoDB
 - PostgreSQL
-- LowDB (development/testing)
+- LowDB (local JSON based database, Most likey used for testing)
+- Memory (for testing purposes)
+- Custom connectors can be created for other databases
 
 ## Performance Considerations
 
